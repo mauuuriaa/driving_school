@@ -39,6 +39,8 @@ class Instructor(models.Model):
     car = models.ForeignKey("Car", on_delete=models.CASCADE, null=True)
     school_name = models.ForeignKey("School", on_delete=models.CASCADE, null=True)
 
+    picture = models.ImageField("Изображение", null=True, upload_to="instructors")
+
     class Meta:
         verbose_name = "Инструктор"
         verbose_name_plural = "Инструкторы"

@@ -8,6 +8,13 @@ axios.defaults.headers.common['X-CSRFToken'] = Cookies.get("csrftoken");
 const students = ref([]);
 const schools = ref([]);
 const courses = ref([]);
+const studentsPictureRef = ref();
+const studentAddImageUrl = ref();
+const studentEditPictureRef = ref();
+const studentEditImageUrl = ref();
+
+
+
 const loading = ref(false);
 
 const studentToAdd = ref({
@@ -40,19 +47,40 @@ async function onLoadClick() {
   await fetchStudents();
 }
 
+async function studentAddPictureChange(){
+  studentAddImageUrl.value = URL.createObjectURL(studentsPictureRef.value.files[0])
+}
+
 async function onStudentAdd() {
   try {
-    await axios.post('/api/students/', {
-      name: studentToAdd.value.name,
-      age: studentToAdd.value.age,
-      school_name: studentToAdd.value.school_name,
-      school_course: studentToAdd.value.school_course
-    })
+    const formData = new FormData();
 
-    studentToAdd.value = { name: '', age: '', school_name: '', school_course: '' }
-    await fetchStudents()
+    // добавляем обычные поля
+    formData.set('name', studentToAdd.value.name);
+    formData.set('age', studentToAdd.value.age);
+    formData.set('school_name', studentToAdd.value.school_name);
+    formData.set('school_course', studentToAdd.value.school_course);
+
+    // добавляем файл, если выбран
+    if (studentsPictureRef.value?.files?.length) {
+      formData.append('picture', studentsPictureRef.value.files[0]);
+    }
+
+    // отправляем multipart/form-data
+    await axios.post('/api/students/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    // очищаем форму
+    studentToAdd.value = { name: '', age: '', school_name: '', school_course: '' };
+    
+    // сброс поля file и превью картинки
+    if (studentsPictureRef.value) studentsPictureRef.value.value = '';
+    studentAddImageUrl.value = null;
+
+    await fetchStudents();
   } catch (error) {
-    console.error('Ошибка при добавлении студента:', error.response?.data || error)
+    console.error('Ошибка при добавлении студента:', error.response?.data || error);
   }
 }
 
@@ -68,20 +96,44 @@ async function onRemoveClick(student) {
 // открыть модалку для редактирования
 async function onStudentEditClick(student) {
   studentToEdit.value = { ...student }
+
+  // Если есть текущее фото, показываем его в превью
+  studentEditImageUrl.value = student.picture || null
+
+  // Сбрасываем поле file, чтобы не было старого выбранного файла
+  if (studentEditPictureRef.value) studentEditPictureRef.value.value = ''
 }
 
 // сохранить изменения
 async function onUpdateStudent() {
   try {
-    await axios.put(`/api/students/${studentToEdit.value.id}/`, {
-      name: studentToEdit.value.name,
-      age: studentToEdit.value.age,
-      school_name: studentToEdit.value.school_name,
-      school_course: studentToEdit.value.school_course
-    })
-    await fetchStudents()
+    const formData = new FormData();
+    formData.set('name', studentToEdit.value.name);
+    formData.set('age', studentToEdit.value.age);
+    formData.set('school_name', studentToEdit.value.school_name);
+    formData.set('school_course', studentToEdit.value.school_course);
+
+    if (studentEditPictureRef.value?.files?.length) {
+      formData.append('picture', studentEditPictureRef.value.files[0]);
+    }
+
+    await axios.put(`/api/students/${studentToEdit.value.id}/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+
+    studentEditImageUrl.value = null;
+    if (studentEditPictureRef.value) studentEditPictureRef.value.value = '';
+
+    await fetchStudents();
   } catch (error) {
-    console.error('Ошибка при обновлении:', error.response?.data || error)
+    console.error('Ошибка при обновлении:', error.response?.data || error);
+  }
+}
+
+
+function studentEditPictureChange() {
+  if (studentEditPictureRef.value?.files?.length) {
+    studentEditImageUrl.value = URL.createObjectURL(studentEditPictureRef.value.files[0]);
   }
 }
 
@@ -91,10 +143,12 @@ onBeforeMount(async () => {
 </script>
 
 <template>
-<h3 class="mb-3">Ученики</h3>
+  <h3 class="mb-3">Ученики</h3>
+
   <!-- Форма добавления -->
   <form @submit.prevent.stop="onStudentAdd" class="mb-3">
     <div class="row g-2 align-items-center">
+      <!-- ФИО -->
       <div class="col">
         <div class="form-floating">
           <input type="text" class="form-control" v-model="studentToAdd.name" required />
@@ -102,6 +156,15 @@ onBeforeMount(async () => {
         </div>
       </div>
 
+      <!-- Фото -->
+      <div class="col-auto">
+        <input class="form-control" type="file" ref="studentsPictureRef" @change="studentAddPictureChange" accept="image/*">
+      </div>
+      <div class="col-auto">
+        <img :src="studentAddImageUrl" alt="" style="max-height: 60px; border-radius: 5px;">
+      </div>
+
+      <!-- Возраст -->
       <div class="col">
         <div class="form-floating">
           <input type="number" class="form-control" v-model="studentToAdd.age" required />
@@ -109,6 +172,7 @@ onBeforeMount(async () => {
         </div>
       </div>
 
+      <!-- Школа -->
       <div class="col">
         <div class="form-floating">
           <select class="form-select" v-model="studentToAdd.school_name" required>
@@ -118,6 +182,7 @@ onBeforeMount(async () => {
         </div>
       </div>
 
+      <!-- Группа -->
       <div class="col">
         <div class="form-floating">
           <select class="form-select" v-model="studentToAdd.school_course" required>
@@ -141,8 +206,11 @@ onBeforeMount(async () => {
       :key="item.id"
       class="student-item d-flex align-items-center justify-content-between border p-2 rounded mb-2"
     >
-      <div>
-        <strong>{{ item.name }}</strong> — {{ item.age }} лет,
+      <div v-if="item.picture">
+        <img :src="item.picture" style="max-height: 60px; border-radius: 5px;" />
+      </div>
+      <div class="flex-grow-1 ms-3 text-start">
+        <strong>{{ item.name }}</strong>, возраст — {{ item.age }} лет,
         школа: {{ item.school_name_display }},
         группа: {{ item.school_course_display }}
       </div>
@@ -170,33 +238,22 @@ onBeforeMount(async () => {
       <div class="modal-content">
         <div class="modal-header">
           <h1 class="modal-title fs-5">Редактировать ученика</h1>
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close"
-          ></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
 
         <div class="modal-body">
           <div class="mb-3">
             <div class="form-floating">
-              <input
-                type="text"
-                class="form-control"
-                v-model="studentToEdit.name"
-              />
+              <input type="text" class="form-control" v-model="studentToEdit.name" />
               <label>ФИО</label>
             </div>
           </div>
 
+          
+
           <div class="mb-3">
             <div class="form-floating">
-              <input
-                type="number"
-                class="form-control"
-                v-model="studentToEdit.age"
-              />
+              <input type="number" class="form-control" v-model="studentToEdit.age" />
               <label>Возраст</label>
             </div>
           </div>
@@ -204,9 +261,7 @@ onBeforeMount(async () => {
           <div class="mb-3">
             <div class="form-floating">
               <select class="form-select" v-model="studentToEdit.school_name">
-                <option :value="s.id" v-for="s in schools" :key="s.id">
-                  {{ s.name }}
-                </option>
+                <option :value="s.id" v-for="s in schools" :key="s.id">{{ s.name }}</option>
               </select>
               <label>Школа</label>
             </div>
@@ -215,27 +270,24 @@ onBeforeMount(async () => {
           <div class="mb-3">
             <div class="form-floating">
               <select class="form-select" v-model="studentToEdit.school_course">
-                <option :value="c.id" v-for="c in courses" :key="c.id">
-                  {{ c.name }}
-                </option>
+                <option :value="c.id" v-for="c in courses" :key="c.id">{{ c.name }}</option>
               </select>
               <label>Группа</label>
             </div>
           </div>
+
+          <div class="mb-3">
+            <label>Изменить фото</label>
+            <input type="file" class="form-control" ref="studentEditPictureRef" @change="studentEditPictureChange" accept="image/*" />
+          </div>
+          <div v-if="studentEditImageUrl" class="mb-3">
+            <img :src="studentEditImageUrl" style="max-height: 100px; border-radius: 5px;" />
+          </div>
         </div>
 
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-            Закрыть
-          </button>
-          <button
-            data-bs-dismiss="modal"
-            type="button"
-            class="btn btn-primary"
-            @click="onUpdateStudent"
-          >
-            Сохранить
-          </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal" @click="onUpdateStudent">Сохранить</button>
         </div>
       </div>
     </div>
@@ -250,3 +302,6 @@ onBeforeMount(async () => {
   background-color: #f8f9fa;
 }
 </style>
+
+
+

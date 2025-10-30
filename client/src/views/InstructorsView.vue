@@ -3,24 +3,25 @@ import { ref, onBeforeMount } from 'vue'
 import axios from 'axios'
 import Cookies from 'js-cookie'
 
-axios.defaults.headers.common['X-CSRFToken'] = Cookies.get('csrftoken')
+axios.defaults.headers.common['X-CSRFToken'] = Cookies.get("csrftoken")
 
+// Данные
 const instructors = ref([])
 const cars = ref([])
 const schools = ref([])
 const loading = ref(false)
 
-const instructorToAdd = ref({
-  name: '',
-  age: '',
-  car: '',
-  school_name: ''
-})
-
+// Добавление/редактирование
+const instructorToAdd = ref({ name: '', age: '', car: '', school_name: '' })
 const instructorToEdit = ref({})
 
-// ==== CRUD ====
+// Файлы и превью
+const instructorAddPictureRef = ref()
+const instructorAddImageUrl = ref()
+const instructorEditPictureRef = ref()
+const instructorEditImageUrl = ref()
 
+// Получение данных
 async function fetchInstructors() {
   loading.value = true
   const r = await axios.get('/api/instructors/')
@@ -38,23 +39,47 @@ async function fetchSchools() {
   schools.value = r.data
 }
 
-// === Добавить ===
+// Изменение превью фото
+function instructorAddPictureChange() {
+  if (instructorAddPictureRef.value?.files?.length) {
+    instructorAddImageUrl.value = URL.createObjectURL(instructorAddPictureRef.value.files[0])
+  }
+}
+
+function instructorEditPictureChange() {
+  if (instructorEditPictureRef.value?.files?.length) {
+    instructorEditImageUrl.value = URL.createObjectURL(instructorEditPictureRef.value.files[0])
+  }
+}
+
+// Добавление инструктора
 async function onInstructorAdd() {
   try {
-    await axios.post('/api/instructors/', {
-      name: instructorToAdd.value.name,
-      age: instructorToAdd.value.age,
-      car: instructorToAdd.value.car,
-      school_name: instructorToAdd.value.school_name
+    const formData = new FormData()
+    formData.set('name', instructorToAdd.value.name)
+    formData.set('age', instructorToAdd.value.age)
+    formData.set('car', instructorToAdd.value.car)
+    formData.set('school_name', instructorToAdd.value.school_name)
+    if (instructorAddPictureRef.value?.files?.length) {
+      formData.append('picture', instructorAddPictureRef.value.files[0])
+    }
+
+    await axios.post('/api/instructors/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     })
+
+    // Очистка формы
     instructorToAdd.value = { name: '', age: '', car: '', school_name: '' }
+    if (instructorAddPictureRef.value) instructorAddPictureRef.value.value = ''
+    instructorAddImageUrl.value = null
+
     await fetchInstructors()
   } catch (error) {
     console.error('Ошибка при добавлении инструктора:', error.response?.data || error)
   }
 }
 
-// === Удалить ===
+// Удаление
 async function onRemoveClick(inst) {
   try {
     await axios.delete(`/api/instructors/${inst.id}/`)
@@ -64,26 +89,39 @@ async function onRemoveClick(inst) {
   }
 }
 
-// === Открыть модалку редактирования ===
-function onInstructorEditClick(inst) {
+// Редактирование
+async function onInstructorEditClick(inst) {
   instructorToEdit.value = { ...inst }
+  instructorEditImageUrl.value = inst.picture || null
+  if (instructorEditPictureRef.value) instructorEditPictureRef.value.value = ''
 }
 
-// === Сохранить изменения ===
+// Сохранение изменений
 async function onUpdateInstructor() {
   try {
-    await axios.put(`/api/instructors/${instructorToEdit.value.id}/`, {
-      name: instructorToEdit.value.name,
-      age: instructorToEdit.value.age,
-      car: instructorToEdit.value.car,
-      school_name: instructorToEdit.value.school_name
+    const formData = new FormData()
+    formData.set('name', instructorToEdit.value.name)
+    formData.set('age', instructorToEdit.value.age)
+    formData.set('car', instructorToEdit.value.car)
+    formData.set('school_name', instructorToEdit.value.school_name)
+    if (instructorEditPictureRef.value?.files?.length) {
+      formData.append('picture', instructorEditPictureRef.value.files[0])
+    }
+
+    await axios.put(`/api/instructors/${instructorToEdit.value.id}/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     })
+
+    instructorEditImageUrl.value = null
+    if (instructorEditPictureRef.value) instructorEditPictureRef.value.value = ''
+
     await fetchInstructors()
   } catch (error) {
     console.error('Ошибка при обновлении инструктора:', error.response?.data || error)
   }
 }
 
+// Инициализация
 onBeforeMount(async () => {
   await Promise.all([fetchInstructors(), fetchCars(), fetchSchools()])
 })
@@ -92,7 +130,7 @@ onBeforeMount(async () => {
 <template>
   <h3 class="mb-3">Инструкторы</h3>
 
-  <!-- === Форма добавления === -->
+  <!-- Форма добавления -->
   <form @submit.prevent="onInstructorAdd" class="mb-3">
     <div class="row g-2 align-items-center">
       <div class="col">
@@ -100,6 +138,13 @@ onBeforeMount(async () => {
           <input type="text" class="form-control" v-model="instructorToAdd.name" required />
           <label>ФИО</label>
         </div>
+      </div>
+
+      <div class="col-auto">
+        <input class="form-control" type="file" ref="instructorAddPictureRef" @change="instructorAddPictureChange" accept="image/*" />
+      </div>
+      <div class="col-auto" v-if="instructorAddImageUrl">
+        <img :src="instructorAddImageUrl" style="max-height: 60px; border-radius: 5px;" />
       </div>
 
       <div class="col">
@@ -133,16 +178,19 @@ onBeforeMount(async () => {
     </div>
   </form>
 
-  <!-- === Список инструкторов === -->
+  <!-- Список инструкторов -->
   <div v-if="loading">Загрузка...</div>
   <div v-else>
     <div
       v-for="inst in instructors"
       :key="inst.id"
-      class="border rounded p-2 mb-2 d-flex justify-content-between align-items-center"
+      class="instructor-item d-flex align-items-center justify-content-between border p-2 rounded mb-2"
     >
-      <div>
-        <strong>{{ inst.name }}</strong> — {{ inst.age }} лет,  
+      <div v-if="inst.picture">
+        <img :src="inst.picture" style="max-height: 60px; border-radius: 5px;" />
+      </div>
+      <div class="flex-grow-1 ms-3 text-start">
+        <strong>{{ inst.name }}</strong>, возраст — {{ inst.age }} лет,
         школа: {{ inst.school_name_display }},
         авто: {{ inst.car_display }}
       </div>
@@ -156,6 +204,7 @@ onBeforeMount(async () => {
         >
           <i class="bi bi-pen-fill"></i>
         </button>
+
         <button class="btn btn-danger btn-sm" @click="onRemoveClick(inst)">
           <i class="bi bi-x"></i>
         </button>
@@ -163,7 +212,7 @@ onBeforeMount(async () => {
     </div>
   </div>
 
-  <!-- === Модалка редактирования === -->
+  <!-- Модалка редактирования -->
   <div class="modal fade" id="editInstructorModal" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -173,36 +222,49 @@ onBeforeMount(async () => {
         </div>
 
         <div class="modal-body">
-          <div class="form-floating mb-2">
-            <input type="text" class="form-control" v-model="instructorToEdit.name" />
-            <label>ФИО</label>
+          <div class="mb-3">
+            <div class="form-floating">
+              <input type="text" class="form-control" v-model="instructorToEdit.name" />
+              <label>ФИО</label>
+            </div>
           </div>
 
-          <div class="form-floating mb-2">
-            <input type="number" class="form-control" v-model="instructorToEdit.age" />
-            <label>Возраст</label>
+          <div class="mb-3">
+            <input class="form-control" type="file" ref="instructorEditPictureRef" @change="instructorEditPictureChange" accept="image/*" />
+          </div>
+          <div v-if="instructorEditImageUrl" class="mb-3">
+            <img :src="instructorEditImageUrl" style="max-height: 100px; border-radius:5px;" />
           </div>
 
-          <div class="form-floating mb-2">
-            <select class="form-select" v-model="instructorToEdit.car">
-              <option :value="c.id" v-for="c in cars" :key="c.id">{{ c.car_number }}</option>
-            </select>
-            <label>Машина</label>
+          <div class="mb-3">
+            <div class="form-floating">
+              <input type="number" class="form-control" v-model="instructorToEdit.age" />
+              <label>Возраст</label>
+            </div>
           </div>
 
-          <div class="form-floating mb-2">
-            <select class="form-select" v-model="instructorToEdit.school_name">
-              <option :value="s.id" v-for="s in schools" :key="s.id">{{ s.name }}</option>
-            </select>
-            <label>Школа</label>
+          <div class="mb-3">
+            <div class="form-floating">
+              <select class="form-select" v-model="instructorToEdit.car">
+                <option :value="c.id" v-for="c in cars" :key="c.id">{{ c.car_number }}</option>
+              </select>
+              <label>Машина</label>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <div class="form-floating">
+              <select class="form-select" v-model="instructorToEdit.school_name">
+                <option :value="s.id" v-for="s in schools" :key="s.id">{{ s.name }}</option>
+              </select>
+              <label>Школа</label>
+            </div>
           </div>
         </div>
 
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-          <button data-bs-dismiss="modal" type="button" class="btn btn-primary" @click="onUpdateInstructor">
-            Сохранить
-          </button>
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal" @click="onUpdateInstructor">Сохранить</button>
         </div>
       </div>
     </div>
@@ -210,7 +272,10 @@ onBeforeMount(async () => {
 </template>
 
 <style scoped>
-.border:hover {
+.instructor-item {
+  transition: all 0.2s ease;
+}
+.instructor-item:hover {
   background-color: #f8f9fa;
 }
 </style>
