@@ -17,7 +17,7 @@ const carToAdd = ref({
 
 const carToEdit = ref({});
 
-// --- CRUD функции ---
+
 async function fetchCars() {
   loading.value = true;
   const r = await axios.get('/api/cars/');

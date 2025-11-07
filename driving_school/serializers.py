@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from driving_school.models import School, Student, Car, Instructor, Course
 
-
 class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
@@ -30,13 +29,16 @@ class InstructorSerializer(serializers.ModelSerializer):
 
 
 class StudentSerializer(serializers.ModelSerializer):
-    # принимаем ID
     school_name = serializers.PrimaryKeyRelatedField(queryset=School.objects.all())
     school_course = serializers.PrimaryKeyRelatedField(queryset=Course.objects.all())
-
-    # возвращаем читаемые названия
     school_name_display = serializers.CharField(source='school_name.name', read_only=True)
     school_course_display = serializers.CharField(source='school_course.name', read_only=True)
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            validated_data['user'] = request.user
+        return super().create(validated_data)
 
     class Meta:
         model = Student
@@ -48,5 +50,7 @@ class StudentSerializer(serializers.ModelSerializer):
             'school_course',
             'school_name_display',
             'school_course_display',
-            "picture"
+            'picture',
+            'user'
         ]
+        read_only_fields = ['user']

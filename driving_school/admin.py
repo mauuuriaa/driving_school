@@ -8,7 +8,8 @@ class SchoolAdmin(admin.ModelAdmin):
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display = ['name','age', 'school_name']
+    list_display = ("name", "age", "school_name", "school_course", "user")
+    list_filter = ("school_name", "school_course", "user")  # фильтр по юзеру
 
 
 @admin.register(Course)
