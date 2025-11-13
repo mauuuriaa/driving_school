@@ -6,33 +6,47 @@ import SchoolsView from '../views/SchoolsView.vue'
 import CoursesView from '../views/CoursesView.vue'
 import CarsView from '../views/CarsView.vue'
 import InstructorsView from '../views/InstructorsView.vue'
+import LoginView from '../views/LoginView.vue'
 
 // Список маршрутов
-const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
-  routes:[
-    { path: '/', redirect: '/students' },
-  { path: '/students', 
+const routes = [
+  { path: '/', redirect: '/students' },
+  { 
+    path: '/students', 
     name: 'Students', 
     component: StudentsView 
   },
-  { path: '/schools', 
+  { 
+    path: '/schools', 
     name: 'Schools', 
     component: SchoolsView 
   },
-  { path: '/courses', 
+  { 
+    path: '/courses', 
     name: 'Courses', 
     component: CoursesView 
   },
-  { path: '/cars', 
+  { 
+    path: '/cars', 
     name: 'Cars', 
     component: CarsView 
   },
-  { path: '/instructors', 
+  { 
+    path: '/instructors', 
     name: 'Instructors', 
     component: InstructorsView 
+  },
+  { 
+    path: '/login', 
+    name: 'Login', 
+    component: LoginView 
   }
-  ]
-}) 
+]
+
+// Создаем роутер
+const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes
+})
 
 export default router

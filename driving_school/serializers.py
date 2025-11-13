@@ -34,12 +34,6 @@ class StudentSerializer(serializers.ModelSerializer):
     school_name_display = serializers.CharField(source='school_name.name', read_only=True)
     school_course_display = serializers.CharField(source='school_course.name', read_only=True)
 
-    def create(self, validated_data):
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            validated_data['user'] = request.user
-        return super().create(validated_data)
-
     class Meta:
         model = Student
         fields = [
@@ -53,4 +47,10 @@ class StudentSerializer(serializers.ModelSerializer):
             'picture',
             'user'
         ]
-        read_only_fields = ['user']
+        read_only_fields = ['user']  # пользователь указывается автоматически
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            validated_data['user'] = request.user
+        return super().create(validated_data)

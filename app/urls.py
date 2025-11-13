@@ -23,7 +23,7 @@ from driving_school import views
 
 from rest_framework.routers import DefaultRouter
 
-from driving_school.api import SchoolViewset, StudentViewset, CarViewset, InstructorViewset, CourseViewset
+from driving_school.api import SchoolViewset, StudentViewset, CarViewset, InstructorViewset, CourseViewset, UserViewset
 
 router = DefaultRouter()
 router.register("schools", SchoolViewset, basename = "schools")
@@ -31,6 +31,7 @@ router.register("students", StudentViewset, basename = "students")
 router.register("cars", CarViewset, basename = "cars") 
 router.register("instructors", InstructorViewset, basename = "instructor") 
 router.register("courses", CourseViewset, basename = "courses") 
+router.register("users", UserViewset, basename='users')
 
 
 urlpatterns = [

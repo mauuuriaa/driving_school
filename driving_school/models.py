@@ -1,4 +1,6 @@
 from django.db import models
+from django.conf import settings
+
 
 
 class School(models.Model):
@@ -26,9 +28,9 @@ class Student(models.Model):
     age = models.TextField("Возраст")
     school_course = models.ForeignKey("Course", on_delete=models.CASCADE, null=True)
     school_name = models.ForeignKey("School", on_delete=models.CASCADE, null=True)
-
     picture = models.ImageField("Изображение", null=True, upload_to="students")
-    user = models.ForeignKey("auth.User", verbose_name="Пользоваткль", on_delete=models.CASCADE, null=True)
+    user = models.ForeignKey("auth.User", verbose_name="Пользователь", on_delete=models.CASCADE)
+
 
     class Meta:
         verbose_name = "Ученик"
