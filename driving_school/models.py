@@ -25,7 +25,7 @@ class Course(models.Model):
 
 class Student(models.Model):
     name = models.TextField("ФИО")
-    age = models.TextField("Возраст")
+    age = models.IntegerField("Возраст")
     school_course = models.ForeignKey("Course", on_delete=models.CASCADE, null=True)
     school_name = models.ForeignKey("School", on_delete=models.CASCADE, null=True)
     picture = models.ImageField("Изображение", null=True, upload_to="students")
@@ -38,7 +38,7 @@ class Student(models.Model):
 
 class Instructor(models.Model):
     name = models.TextField("ФИО")
-    age = models.TextField("Возраст")
+    age = models.IntegerField("Возраст")
     car = models.ForeignKey("Car", on_delete=models.CASCADE, null=True)
     school_name = models.ForeignKey("School", on_delete=models.CASCADE, null=True)
 

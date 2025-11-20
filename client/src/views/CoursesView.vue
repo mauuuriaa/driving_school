@@ -1,15 +1,50 @@
 <script setup>
-import { ref, onBeforeMount } from 'vue';
+import { ref, onBeforeMount, computed } from 'vue';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
 axios.defaults.headers.common['X-CSRFToken'] = Cookies.get("csrftoken");
 
 const courses = ref([]);
+const stats = ref(null);
 const loading = ref(false);
+
+// Фильтр для групп
+const courseFilter = ref('');
 
 const courseToAdd = ref({ name: '' });
 const courseToEdit = ref({}); // выбранная группа для редактирования
+
+// Отфильтрованные группы
+const filteredCourses = computed(() => {
+  if (!courseFilter.value) {
+    return courses.value;
+  }
+  return courses.value.filter(course => 
+    course.name.toLowerCase().includes(courseFilter.value.toLowerCase())
+  );
+});
+
+// Уникальные названия групп для автодополнения
+const uniqueCourseNames = computed(() => {
+  const names = courses.value.map(course => course.name);
+  return [...new Set(names)].sort();
+});
+
+// Сброс фильтра
+function resetFilter() {
+  courseFilter.value = '';
+}
+
+//Статистика
+async function fetchStats() {
+  try {
+    const r = await axios.get('/api/courses/stats/')
+    stats.value = r.data
+  } catch (e) {
+    console.error("Ошибка получения статистики", e)
+  }
+}
 
 // Загрузка групп
 async function fetchCourses() {
@@ -57,11 +92,22 @@ async function onUpdateCourse() {
 
 onBeforeMount(async () => {
   await fetchCourses();
+  await fetchStats();
 });
 </script>
 
 <template>
-<h3 class="mb-3">Группы</h3>
+  <h3 class="mb-3">Группы</h3>
+
+  <div v-if="stats" class="alert alert-info mb-4">
+    <h5 class="alert-heading">Статистика</h5>
+    <div class="d-flex gap-4"> 
+      <span class="me-3">Всего групп: {{ stats.count }}</span>
+      <span class="me-3">Макс. ID: {{ stats.max }}</span>
+      <span class="me-3">Мин. ID: {{ stats.min }}</span>
+    </div>
+  </div>
+
   <!-- Форма добавления группы -->
   <form @submit.prevent.stop="onCourseAdd" class="mb-3">
     <div class="row g-2 align-items-center">
@@ -77,11 +123,50 @@ onBeforeMount(async () => {
     </div>
   </form>
 
+  <!-- Панель фильтра -->
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h6 class="mb-0">Фильтр</h6>
+      <button class="btn btn-outline-secondary btn-sm" @click="resetFilter">
+        Сбросить фильтр
+      </button>
+    </div>
+    <div class="card-body">
+      <div class="row g-2 align-items-center">
+        <!-- Фильтр по названию группы -->
+        <div class="col-md-6">
+          <div class="form-floating">
+            <input 
+              type="text" 
+              class="form-control" 
+              v-model="courseFilter" 
+              placeholder="Название группы"
+              list="courseNamesList"
+            />
+            <label>Название группы</label>
+          </div>
+          <datalist id="courseNamesList">
+            <option :value="name" v-for="name in uniqueCourseNames" :key="name">
+              {{ name }}
+            </option>
+          </datalist>
+        </div>
+        
+        <!-- Счетчик результатов -->
+        <div class="col-md-6">
+          <small class="text-muted">
+            Найдено групп: {{ filteredCourses.length }} 
+          </small>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Список групп -->
   <div v-if="loading">Загрузка...</div>
   <div v-else>
     <div
-      v-for="course in courses"
+      v-for="course in filteredCourses"
       :key="course.id"
       class="course-item d-flex align-items-center justify-content-between border p-2 rounded mb-2"
     >
@@ -103,6 +188,12 @@ onBeforeMount(async () => {
           <i class="bi bi-x"></i>
         </button>
       </div>
+    </div>
+
+    <!-- Сообщение, если ничего не найдено -->
+    <div v-if="filteredCourses.length === 0 && courses.length > 0" class="text-center text-muted py-4">
+      <i class="bi bi-search display-4 d-block mb-2"></i>
+      <p>Группы не найдены</p>
     </div>
   </div>
 

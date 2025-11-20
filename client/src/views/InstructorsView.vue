@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onBeforeMount } from 'vue'
+import { ref, onBeforeMount, computed } from 'vue'
 import axios from 'axios'
 import Cookies from 'js-cookie'
 
@@ -9,7 +9,16 @@ axios.defaults.headers.common['X-CSRFToken'] = Cookies.get("csrftoken")
 const instructors = ref([])
 const cars = ref([])
 const schools = ref([])
+const stats = ref(null)
 const loading = ref(false)
+
+// Фильтры для инструкторов
+const instructorFilters = ref({
+  name: '',
+  age: '',
+  car: '',
+  school_name: ''
+})
 
 // Добавление/редактирование
 const instructorToAdd = ref({ name: '', age: '', car: '', school_name: '' })
@@ -20,6 +29,49 @@ const instructorAddPictureRef = ref()
 const instructorAddImageUrl = ref()
 const instructorEditPictureRef = ref()
 const instructorEditImageUrl = ref()
+
+// Отфильтрованные инструкторы
+const filteredInstructors = computed(() => {
+  return instructors.value.filter(instructor => {
+    return (
+      instructor.name.toLowerCase().includes(instructorFilters.value.name.toLowerCase()) &&
+      instructor.age.toString().includes(instructorFilters.value.age) &&
+      (instructorFilters.value.car === '' || instructor.car?.toString() === instructorFilters.value.car) &&
+      (instructorFilters.value.school_name === '' || instructor.school_name?.toString() === instructorFilters.value.school_name)
+    );
+  });
+});
+
+// Уникальные значения для автодополнения
+const uniqueNames = computed(() => {
+  const names = instructors.value.map(instructor => instructor.name);
+  return [...new Set(names)].sort();
+});
+
+const uniqueAges = computed(() => {
+  const ages = instructors.value.map(instructor => instructor.age);
+  return [...new Set(ages)].sort((a, b) => a - b);
+});
+
+// Сброс фильтров
+function resetFilters() {
+  instructorFilters.value = {
+    name: '',
+    age: '',
+    car: '',
+    school_name: ''
+  };
+}
+
+//Статистика
+async function fetchStats() {
+  try {
+    const r = await axios.get('/api/instructors/stats/')
+    stats.value = r.data
+  } catch (e) {
+    console.error("Ошибка получения статистики", e)
+  }
+}
 
 // Получение данных
 async function fetchInstructors() {
@@ -123,12 +175,22 @@ async function onUpdateInstructor() {
 
 // Инициализация
 onBeforeMount(async () => {
-  await Promise.all([fetchInstructors(), fetchCars(), fetchSchools()])
+  await Promise.all([fetchInstructors(), fetchCars(), fetchSchools(), fetchStats()])
 })
 </script>
 
 <template>
   <h3 class="mb-3">Инструкторы</h3>
+
+  <div v-if="stats" class="alert alert-info mb-4">
+    <h5 class="alert-heading">Статистика</h5>
+    <div class="d-flex gap-4">
+      <div>Всего инструкторов: <strong>{{ stats.count }}</strong></div>
+      <div v-if="stats.avg">Средний возраст: <strong>{{ stats.avg.toFixed(1) }}</strong></div>
+      <div v-if="stats.max">Макс. возраст: <strong>{{ stats.max }}</strong></div>
+      <div v-if="stats.min">Мин. возраст: <strong>{{ stats.min }}</strong></div>
+    </div>
+  </div>
 
   <!-- Форма добавления -->
   <form @submit.prevent="onInstructorAdd" class="mb-3">
@@ -157,6 +219,7 @@ onBeforeMount(async () => {
       <div class="col">
         <div class="form-floating">
           <select class="form-select" v-model="instructorToAdd.car" required>
+            <option value="">Выберите машину</option>
             <option :value="c.id" v-for="c in cars" :key="c.id">{{ c.car_number }} ({{ c.model }})</option>
           </select>
           <label>Машина</label>
@@ -166,6 +229,7 @@ onBeforeMount(async () => {
       <div class="col">
         <div class="form-floating">
           <select class="form-select" v-model="instructorToAdd.school_name" required>
+            <option value="">Выберите школу</option>
             <option :value="s.id" v-for="s in schools" :key="s.id">{{ s.name }}</option>
           </select>
           <label>Школа</label>
@@ -178,11 +242,95 @@ onBeforeMount(async () => {
     </div>
   </form>
 
+  <!-- Панель фильтров -->
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h6 class="mb-0">Фильтры</h6>
+      <button class="btn btn-outline-secondary btn-sm" @click="resetFilters">
+        Сбросить фильтры
+      </button>
+    </div>
+    <div class="card-body">
+      <div class="row g-2">
+        <!-- Фильтр по ФИО -->
+        <div class="col-md-3">
+          <div class="form-floating">
+            <input 
+              type="text" 
+              class="form-control" 
+              v-model="instructorFilters.name" 
+              placeholder="ФИО"
+              list="namesList"
+            />
+            <label>ФИО</label>
+          </div>
+          <datalist id="namesList">
+            <option :value="name" v-for="name in uniqueNames" :key="name">
+              {{ name }}
+            </option>
+          </datalist>
+        </div>
+
+        <!-- Фильтр по возрасту -->
+        <div class="col-md-2">
+          <div class="form-floating">
+            <input 
+              type="number" 
+              class="form-control" 
+              v-model="instructorFilters.age" 
+              placeholder="Возраст"
+              list="agesList"
+            />
+            <label>Возраст</label>
+          </div>
+          <datalist id="agesList">
+            <option :value="age" v-for="age in uniqueAges" :key="age">
+              {{ age }}
+            </option>
+          </datalist>
+        </div>
+
+        <!-- Фильтр по машине -->
+        <div class="col-md-3">
+          <div class="form-floating">
+            <select class="form-select" v-model="instructorFilters.car">
+              <option value="">Все машины</option>
+              <option :value="c.id" v-for="c in cars" :key="c.id">
+                {{ c.car_number }} ({{ c.model }})
+              </option>
+            </select>
+            <label>Машина</label>
+          </div>
+        </div>
+
+        <!-- Фильтр по школе -->
+        <div class="col-md-2">
+          <div class="form-floating">
+            <select class="form-select" v-model="instructorFilters.school_name">
+              <option value="">Все школы</option>
+              <option :value="s.id" v-for="s in schools" :key="s.id">
+                {{ s.name }}
+              </option>
+            </select>
+            <label>Школа</label>
+          </div>
+        </div>
+
+        <!-- Счетчик результатов -->
+        <div class="col-md-2 d-flex align-items-center">
+          <small class="text-muted">
+            Найдено: {{ filteredInstructors.length }}
+          </small>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Список инструкторов -->
   <div v-if="loading">Загрузка...</div>
   <div v-else>
     <div
-      v-for="inst in instructors"
+      v-for="inst in filteredInstructors"
       :key="inst.id"
       class="instructor-item d-flex align-items-center justify-content-between border p-2 rounded mb-2"
     >
@@ -209,6 +357,12 @@ onBeforeMount(async () => {
           <i class="bi bi-x"></i>
         </button>
       </div>
+    </div>
+
+    <!-- Сообщение, если ничего не найдено -->
+    <div v-if="filteredInstructors.length === 0 && instructors.length > 0" class="text-center text-muted py-4">
+      <i class="bi bi-search display-4 d-block mb-2"></i>
+      <p>Инструкторы не найдены</p>
     </div>
   </div>
 
@@ -246,7 +400,8 @@ onBeforeMount(async () => {
           <div class="mb-3">
             <div class="form-floating">
               <select class="form-select" v-model="instructorToEdit.car">
-                <option :value="c.id" v-for="c in cars" :key="c.id">{{ c.car_number }}</option>
+                <option value="">Выберите машину</option>
+                <option :value="c.id" v-for="c in cars" :key="c.id">{{ c.car_number }} ({{ c.model }})</option>
               </select>
               <label>Машина</label>
             </div>
@@ -255,6 +410,7 @@ onBeforeMount(async () => {
           <div class="mb-3">
             <div class="form-floating">
               <select class="form-select" v-model="instructorToEdit.school_name">
+                <option value="">Выберите школу</option>
                 <option :value="s.id" v-for="s in schools" :key="s.id">{{ s.name }}</option>
               </select>
               <label>Школа</label>

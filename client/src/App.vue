@@ -7,7 +7,10 @@ const userStore = useUserStore();
 const { userInfo } = storeToRefs(userStore);
 
 onMounted(() => {
-  userStore.fetchUserInfo();
+  // Если есть токен в localStorage, пробуем загрузить юзера
+  if (localStorage.getItem('token')) {
+      userStore.fetchUserInfo();
+  }
 });
 
 async function handleLogout() {
