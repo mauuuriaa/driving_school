@@ -1,14 +1,15 @@
+
 import { createRouter, createWebHistory } from 'vue-router'
 
-// Импорт всех вью-компонентов
 import StudentsView from '../views/StudentsView.vue'
 import SchoolsView from '../views/SchoolsView.vue'
 import CoursesView from '../views/CoursesView.vue'
 import CarsView from '../views/CarsView.vue'
 import InstructorsView from '../views/InstructorsView.vue'
 import LoginView from '../views/LoginView.vue'
+import SecondAuthView from '../views/SecondAuthView.vue'
+import { useUserStore } from "@/stores/user_store"; 
 
-// Список маршрутов
 const routes = [
   { path: '/', redirect: '/students' },
   { 
@@ -40,13 +41,23 @@ const routes = [
     path: '/login', 
     name: 'Login', 
     component: LoginView 
+  },
+  { 
+    path: '/second-auth',   
+    name: 'SecondAuth', 
+    component: SecondAuthView 
   }
 ]
 
-// Создаем роутер
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes
+})
+
+router.beforeEach((to, from) =>{
+  const userUserStore = useUserStore();
+  if (userUserStore.is_authenticated == false && to.name != 'Login')
+    return { name: 'Login'}
 })
 
 export default router

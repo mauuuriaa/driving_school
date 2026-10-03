@@ -1,27 +1,55 @@
 <script setup lang="ts">
-import {ref} from "vue";
-import {useRouter} from "vue-router";
-import {useUserStore} from "@/stores/user_store";
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useUserStore } from "@/stores/user_store";
+import axios from "axios";
 
-const username = ref("");
-const password = ref("");
 const router = useRouter();
 const userStore = useUserStore();
 
-async function onFormSend() {
-  await userStore.login(username.value, password.value);
-  if (userStore.userInfo?.is_authenticated) {
-    router.push("/");
+
+const username = ref();
+const password = ref();
+
+async function onLoginFormSubmit() {
+  try {
+    const r = await axios.post("/api/users/login/", {
+      username: username.value,
+      password: password.value,
+    })
+
+    username.value = '';
+    password.value = '';
+
+    await userStore.fetchUserInfo();
+
+    router.push("/students");
+  } catch (err) {
+    console.error("Ошибка при логине:", err);
+    alert("Неверный логин или пароль");
   }
 }
 </script>
 
 <template>
-  <div class="d-flex justify-content-center mt-5">
-    <form @submit.prevent="onFormSend" style="max-width: 300px; width: 100%;">
-      <input v-model="username" class="form-control mb-2" placeholder="Имя пользователя" required />
-      <input v-model="password" class="form-control mb-3" type="password" placeholder="Пароль" required />
-      <button class="btn btn-primary w-100">Войти</button>
-    </form>
-  </div>
+  <form
+    
+    @submit.prevent.stop="onLoginFormSubmit"
+    class="form d-flex flex-column p-3"
+    style="gap: 8px"
+  >
+    <input
+      placeholder="логин"
+      class="form-control"
+      type="text"
+      v-model="username"
+    />
+    <input
+      placeholder="пароль"
+      class="form-control"
+      type="password"
+      v-model="password"
+    />
+    <button class="btn btn-info">Войти</button>
+  </form>
 </template>

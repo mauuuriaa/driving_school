@@ -1,71 +1,54 @@
 import {defineStore} from "pinia";
-import axios from "axios";
+import axios from "axios"; 
+import { onBeforeMount, ref, computed } from "vue";
+import Cookies from 'js-cookie'; 
+ 
+export const useUserStore = defineStore("userStore", () => { 
+    const userInfo = ref({}); 
+    const username = ref(); 
+    const is_authenticated = ref(null); 
+    const is_second_factor_active = ref(false);
+    const is_superuser = ref(false); 
+    const is_staff = ref(false);
 
-export const useUserStore = defineStore("user", {
-  state: () => ({
-    userInfo: null as any,
-    token: localStorage.getItem("token") || null, // Считываем токен при запуске
-  }),
+    
+    const can_edit_or_delete_students = computed(() => {
+        return is_superuser.value || (is_authenticated.value && is_second_factor_active.value);
+    });
 
-  actions: {
-    async fetchUserInfo() {
-      // Если токена нет, нет смысла делать запрос
-      if (!this.token) return;
-
-      // Устанавливаем заголовок авторизации
-      axios.defaults.headers.common['Authorization'] = `Token ${this.token}`;
-
-      try {
+    const can_export_data = computed(() => {
         
-      
-        const response = await axios.get("/api/users/me/"); 
-        this.userInfo = response.data;
-      } catch (error) {
-        console.error("Ошибка получения данных юзера", error);
-        this.logout(); 
-      }
-    },
+        return is_staff.value || is_superuser.value || (is_authenticated.value && is_second_factor_active.value);
+    });
 
-    async login(username: string, password: string) {
-      try {
-        const response = await axios.post("/api/users/login/", {username, password});
+    
+    async function fetchUserInfo() { 
         
-       
-        if (response.data.token) {
-          this.token = response.data.token;
-          
-          
-          localStorage.setItem("token", this.token);
-          
-          
-          axios.defaults.headers.common['Authorization'] = `Token ${this.token}`;
-          
-          await this.fetchUserInfo();
-        } else {
-            alert("Ошибка: Сервер не вернул токен");
-        }
-      } catch (error) {
-        console.error(error);
-        alert("Неверное имя пользователя или пароль");
-      }
-    },
-
-    async logout() {
-      try {
-          // Пытаемся сказать бэкенду, что мы вышли (необязательно, но желательно)
-          if (this.token) {
-             axios.defaults.headers.common['Authorization'] = `Token ${this.token}`;
-             await axios.post("/api/users/logout/");
-          }
-      } catch (e) {
-          // Игнорируем ошибки при выходе
-      } finally {
-          // В любом случае чистим данные на клиенте
-          this.userInfo = null;
-          this.token = null;
-          localStorage.removeItem("token");
-          delete axios.defaults.headers.common['Authorization'];
-      }
-    },
-  },
+        const r = await axios.get("/api/users/my/"); 
+        userInfo.value = r.data; 
+        username.value = r.data.username; 
+        is_authenticated.value = r.data.is_authenticated; 
+                
+            
+        is_second_factor_active.value = r.data.second_factor_active || false; 
+        is_superuser.value = r.data.is_superuser || false;
+        is_staff.value = r.data.is_staff || false; 
+                
+        axios.defaults.headers.common['X-CSRFToken'] = Cookies.get("csrftoken"); 
+        
+    }
+    
+    onBeforeMount(async() => { fetchUserInfo() }); 
+    
+    return { 
+        userInfo, 
+        is_authenticated, 
+        username, 
+        is_second_factor_active, 
+        is_superuser,
+        can_edit_or_delete_students,
+        is_staff,
+        can_export_data,
+        fetchUserInfo 
+    }
 });

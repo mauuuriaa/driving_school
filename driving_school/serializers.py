@@ -1,5 +1,7 @@
+
 from rest_framework import serializers
 from driving_school.models import School, Student, Car, Instructor, Course
+
 
 class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
@@ -47,7 +49,7 @@ class StudentSerializer(serializers.ModelSerializer):
             'picture',
             'user'
         ]
-        read_only_fields = ['user']  # пользователь указывается автоматически
+        read_only_fields = ['user']  
 
     def create(self, validated_data):
         request = self.context.get('request')

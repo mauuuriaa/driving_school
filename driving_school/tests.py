@@ -1,89 +1,85 @@
 from rest_framework.test import APIClient
 from django.test import TestCase
-from driving_school.models import Student, Course, School, Car, Instructor
+from driving_school.models import Student, Course, School, Car, Instructor, User
 from model_bakery import baker
 
 # Create your tests here.
 class StudentsViewsetTestCase(TestCase):
     def setUp(self):
         self.client = APIClient()
-    
+        self.user = User.objects.create_user(username="tester", password="pass12345")
+        self.client.force_authenticate(user=self.user)
 
     def test_get_list(self):
-        course = Course.objects.create(
-        name="20-1"
-        )
-
-        school = School.objects.create(
-        name="Трек"
-        )
+        course = Course.objects.create(name="20-1")
+        school = School.objects.create(name="Трек")
 
         student = Student.objects.create(
             name="Василий Андреевич Иванов",
-            age="21",
+            age=21,
             school_course=course,
-            school_name = school,
+            school_name=school,
+            user=self.user,
         )
 
         r = self.client.get('/api/students/')
         data = r.json()
-        print(data)
 
         assert student.name == data[0]['name']
         assert student.age == data[0]['age']
-        assert student.school_course.id == data[0]['school_course']
-        assert student.school_name.id == data[0]['school_name']['id']
+        assert course.id == data[0]['school_course']
+        assert school.id == data[0]['school_name']
         assert len(data) == 1
-
-        
 
     def test_create_student(self):
         crs = baker.make("driving_school.Course")
-                
+        sch = baker.make("driving_school.School")
+
         r = self.client.post("/api/students/", {
-        "name": "Иван",
-        "age": "18",
-        "school_course": crs.id,
+            "name": "Иван",
+            "age": 18,
+            "school_course": crs.id,
+            "school_name": sch.id,
         })
+        assert r.status_code == 201
 
-        new_student_id = r.json()['id']
-        students = Student.objects.all()
-        assert len(students) == 1
-
-        new_student = Student.objects.filter(id=new_student_id).first()
+        new_student = Student.objects.get(id=r.json()['id'])
+        assert Student.objects.count() == 1
         assert new_student.name == "Иван"
-        assert new_student.age == "18"
+        assert new_student.age == 18
         assert new_student.school_course == crs
-    
+        assert new_student.school_name == sch
+        assert new_student.user == self.user
+
     def test_delete_student(self):
-        students = baker.make("Student", 10)
+        students = baker.make("Student", 10, user=self.user)
         r = self.client.get("/api/students/")
-        data = r.json()
-        assert len(data) == 10
+        assert len(r.json()) == 10
 
         student_id_to_delete = students[3].id
-        self.client.delete(f"/api/students/{student_id_to_delete}/")
+        r = self.client.delete(f"/api/students/{student_id_to_delete}/")
+        assert r.status_code == 204
 
-        r = self.client.get('/api/students/')
-        data = r.json()
+        data = self.client.get('/api/students/').json()
         assert len(data) == 9
-
         assert student_id_to_delete not in [i['id'] for i in data]
-    
+
     def test_update_student(self):
-        students = baker.make("Student", 10)
-        student: Student = students[2]
+        course = baker.make("driving_school.Course")
+        school = baker.make("driving_school.School")
+        student = baker.make(
+            "Student", user=self.user, school_course=course, school_name=school
+        )
 
         r = self.client.put(f"/api/students/{student.id}/", {
             "name": "Женя Петрушин",
-            "age": student.age,          
-            "school_course": student.school_course.id if student.school_course else "",
-            "school_name": student.school_name.id if student.school_name else "",
+            "age": student.age,
+            "school_course": course.id,
+            "school_name": school.id,
         })
         assert r.status_code == 200
 
-        r = self.client.get(f"/api/students/{student.id}/")
-        data = r.json()
+        data = self.client.get(f"/api/students/{student.id}/").json()
         assert data['name'] == "Женя Петрушин"
 
         student.refresh_from_db()
@@ -319,20 +315,21 @@ class InstructorViewsetTestCase(TestCase):
         )
 
         instructor = Instructor.objects.create(
-            name="Покровский Григорий Даниилович",
-            age="49",
-            car=car,
-            school_name = school,
+        name="Покровский Григорий Даниилович",
+        age=49,
+        car=car,
+        school_name=school,
         )
 
         r = self.client.get('/api/instructors/')
         data = r.json()
-        print(data)
 
         assert instructor.name == data[0]['name']
         assert instructor.age == data[0]['age']
-        assert instructor.car.car_number == data[0]['car']['car_number'] 
-        assert instructor.school_name.id == data[0]['school_name']['id']
+        assert data[0]['car'] == car.id
+        assert data[0]['car_display'] == car.car_number
+        assert data[0]['school_name'] == school.id
+        assert data[0]['school_name_display'] == school.name
         assert len(data) == 1
 
     def test_create_instructor(self):
@@ -348,7 +345,7 @@ class InstructorViewsetTestCase(TestCase):
 
         new_instructor = instructors.first()
         assert new_instructor.name == "Иван"
-        assert new_instructor.age == "18"
+        assert new_instructor.age == 18
 
     def test_delete_instructor(self):
         instructors = baker.make("Instructor", 10)
