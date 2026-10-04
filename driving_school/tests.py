@@ -118,7 +118,7 @@ class SchoolsViewsetTestCase(TestCase):
         assert len(schools) == 1
 
         new_school = School.objects.filter(id=new_school_id).first()
-        assert new_school.name == "Сломано специально"
+        assert new_school.name == "Трек"
 
     def test_delete_school(self):
         schools = baker.make("School", 10)
