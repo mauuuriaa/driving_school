@@ -4,6 +4,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
+const apiTarget = process.env.API_TARGET || "http://localhost:8000"
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
@@ -17,18 +19,10 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': {
-        target: "http://localhost:8000"
-      },
-      '/admin': {
-        target: "http://localhost:8000"
-      },
-      '/static': {
-        target: "http://localhost:8000"
-      },
-      '/media': {
-        target: "http://localhost:8000"
-      }
+      '/api': { target: apiTarget },
+      '/admin': { target: apiTarget },
+      '/static': { target: apiTarget },
+      '/media': { target: apiTarget }
     }
   }
 })
