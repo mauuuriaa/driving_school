@@ -25,7 +25,7 @@ async function onLogout() {
 <template>
   <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
     <div class="container">
-      <router-link class="navbar-brand" to="/">Автошкола</router-link>
+      <router-link class="navbar-brand" to="/">Автошкола5</router-link>
 
       <button
         class="navbar-toggler"
