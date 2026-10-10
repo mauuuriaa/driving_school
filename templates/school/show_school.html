@@ -6,8 +6,12 @@
     <title>Document</title>
 </head>
 <body>
-    {% for s in school%}
-    {{s.id}} {{s.name}} <br>
+    <p>DEBUG: {{ debug_info }}</p>
+    <p>Студентов: {{ student_count }}</p>
+
+    {% for s in school %}
+        <div>{{ s.name }}</div>
     {% endfor %}
+
 </body>
 </html>
