@@ -1,0 +1,35 @@
+services:
+  backend:
+    build: .
+    image: driving-school-backend
+    restart: unless-stopped
+    environment:
+      DJANGO_DEBUG: "0"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
+      DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY:-change-me-in-production}"
+      DJANGO_DB_PATH: "/data/db.sqlite3"
+    volumes:
+      - db_data:/data
+      - static_data:/app/staticfiles
+      - media_data:/app/media
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn app.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+
+  web:
+    build: ./client
+    image: driving-school-web
+    restart: unless-stopped
+    ports:
+      - "8088:80"
+    depends_on:
+      - backend
+    volumes:
+      - static_data:/var/www/static:ro
+      - media_data:/var/www/media:ro
+
+volumes:
+  db_data:
+  static_data:
+  media_data:
