@@ -1,0 +1,12 @@
+.git
+.conda
+.vscode
+.pytest_cache
+venv
+.venv
+node_modules
+client
+media
+db.sqlite3
+**/__pycache__
+*.pyc
