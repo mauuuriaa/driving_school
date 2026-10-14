@@ -1,16 +1,37 @@
 name: driving-school
+
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: driving_school
+      POSTGRES_USER: driving_school
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-driving_school_pass}"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U driving_school -d driving_school"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   backend:
     build: .
     image: driving-school-backend
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       DJANGO_DEBUG: "0"
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
       DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY:-change-me-in-production}"
-      DJANGO_DB_PATH: "/data/db.sqlite3"
+      POSTGRES_DB: driving_school
+      POSTGRES_USER: driving_school
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-driving_school_pass}"
+      POSTGRES_HOST: db
     volumes:
-      - db_data:/data
       - static_data:/app/staticfiles
       - media_data:/app/media
     command: >
@@ -31,6 +52,6 @@ services:
       - media_data:/var/www/media:ro
 
 volumes:
-  db_data:
+  pg_data:
   static_data:
   media_data:
