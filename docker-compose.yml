@@ -18,7 +18,7 @@ services:
 
   backend:
     build: .
-    image: driving-school-backend
+    image: mariiiia123/driving-school-backend:${TAG:-latest}
     restart: unless-stopped
     depends_on:
       db:
@@ -41,7 +41,7 @@ services:
 
   web:
     build: ./client
-    image: driving-school-web
+    image: mariiiia123/driving-school-web:${TAG:-latest}
     restart: unless-stopped
     ports:
       - "8088:80"
@@ -55,3 +55,4 @@ volumes:
   pg_data:
   static_data:
   media_data:
+  
