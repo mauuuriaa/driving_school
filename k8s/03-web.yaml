@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: driving-school
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      initContainers:
+        - name: collectstatic
+          image: mariiiia123/driving-school-backend:22
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - python manage.py collectstatic --noinput && cp -r /app/staticfiles/. /var/www/static/
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secret
+          volumeMounts:
+            - name: static
+              mountPath: /var/www/static
+      containers:
+        - name: web
+          image: mariiiia123/driving-school-web:22
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: static
+              mountPath: /var/www/static
+              readOnly: true
+            - name: media
+              mountPath: /var/www/media
+              readOnly: true
+      volumes:
+        - name: static
+          emptyDir: {}
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: driving-school
+spec:
+  type: LoadBalancer
+  selector:
+    app: web
+  ports:
+    - port: 8090
+      targetPort: 80

@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-data
+  namespace: driving-school
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  namespace: driving-school
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: mariiiia123/driving-school-backend:22
+          imagePullPolicy: IfNotPresent
+          command: ["python", "manage.py", "migrate", "--noinput"]
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secret
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: driving-school
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: mariiiia123/driving-school-backend:22
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secret
+          readinessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          volumeMounts:
+            - name: media
+              mountPath: /app/media
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: driving-school
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8000
+      targetPort: 8000
