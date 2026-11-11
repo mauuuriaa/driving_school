@@ -6,12 +6,25 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: app-config
+  name: accounts-config
   namespace: driving-school
 data:
   DJANGO_DEBUG: "0"
-  DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
-  POSTGRES_DB: driving_school
+  DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,accounts"
+  POSTGRES_DB: accounts_db
+  POSTGRES_USER: driving_school
+  POSTGRES_HOST: db
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: school-config
+  namespace: driving-school
+data:
+  DJANGO_DEBUG: "0"
+  DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,school"
+  ACCOUNTS_URL: "http://accounts:8000"
+  POSTGRES_DB: school_db
   POSTGRES_USER: driving_school
   POSTGRES_HOST: db
 ---

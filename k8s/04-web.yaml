@@ -15,7 +15,7 @@ spec:
     spec:
       initContainers:
         - name: collectstatic
-          image: mariiiia123/driving-school-backend:22
+          image: mariiiia123/driving-school-accounts:v1
           imagePullPolicy: IfNotPresent
           command:
             - sh
@@ -23,7 +23,7 @@ spec:
             - python manage.py collectstatic --noinput && cp -r /app/staticfiles/. /var/www/static/
           envFrom:
             - configMapRef:
-                name: app-config
+                name: accounts-config
             - secretRef:
                 name: app-secret
           volumeMounts:
@@ -31,7 +31,7 @@ spec:
               mountPath: /var/www/static
       containers:
         - name: web
-          image: mariiiia123/driving-school-web:22
+          image: mariiiia123/driving-school-web:v1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
