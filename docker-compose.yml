@@ -5,39 +5,63 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: driving_school
+      POSTGRES_DB: postgres
       POSTGRES_USER: driving_school
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-driving_school_pass}"
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U driving_school -d driving_school"]
+      test: ["CMD-SHELL", "pg_isready -U driving_school -d postgres"]
       interval: 5s
       timeout: 3s
       retries: 10
 
-  backend:
-    build: .
-    image: mariiiia123/driving-school-backend:${TAG:-latest}
+  accounts:
+    build: ./services/accounts
+    image: mariiiia123/driving-school-accounts:${TAG:-latest}
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
       DJANGO_DEBUG: "0"
-      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,accounts"
       DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY:-change-me-in-production}"
-      POSTGRES_DB: driving_school
+      POSTGRES_DB: accounts_db
       POSTGRES_USER: driving_school
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-driving_school_pass}"
       POSTGRES_HOST: db
     volumes:
       - static_data:/app/staticfiles
-      - media_data:/app/media
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
-             gunicorn app.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+
+  school:
+    build: ./services/school
+    image: mariiiia123/driving-school-school:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      accounts:
+        condition: service_started
+    environment:
+      DJANGO_DEBUG: "0"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,school"
+      DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY:-change-me-in-production}"
+      ACCOUNTS_URL: "http://accounts:8000"
+      POSTGRES_DB: school_db
+      POSTGRES_USER: driving_school
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-driving_school_pass}"
+      POSTGRES_HOST: db
+    volumes:
+      - media_data:/app/media
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
 
   web:
     build: ./client
@@ -46,7 +70,8 @@ services:
     ports:
       - "8088:80"
     depends_on:
-      - backend
+      - accounts
+      - school
     volumes:
       - static_data:/var/www/static:ro
       - media_data:/var/www/media:ro
@@ -55,4 +80,3 @@ volumes:
   pg_data:
   static_data:
   media_data:
-  
